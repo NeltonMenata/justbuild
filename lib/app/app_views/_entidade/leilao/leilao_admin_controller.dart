@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:parse_server_sdk_flutter/parse_server_sdk.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pinonline/app/app_controller/_entidade/entidade_login_controller.dart';
 import 'package:pinonline/app/app_models/entidade_model.dart';
 import 'package:pinonline/app/app_models/leilao_cliente_model.dart';
 
@@ -14,6 +15,11 @@ class LeilaoAdminController extends GetxController {
   final List<EntidadeModel>? entidade = [];
   var valorProposta = TextEditingController();
   var valorLimite = TextEditingController();
+
+  EntidadeModel get _entidade => EntidadeLoginController.controller.entidade[0];
+
+  //
+  var isDonePropostaLeilao = false;
   // Variavel que seleciona todos
   bool isSelected = false;
 
@@ -212,7 +218,8 @@ class LeilaoAdminController extends GetxController {
   // Função que retorna uma lista de Proposta de Leilão
   // recebe o objectId da Entidade e retorna todas Propostas de Leilão
   // onde é igual ao objectId da Entidade
-  Future<List<ParseObject>> entidadeListaPropostaLeilao(
+  List<ParseObject> entidadeListaPropostaLeilao = [];
+  Future<List<ParseObject>> _entidadeListaPropostaLeilao(
       String objectIdEntidade) async {
     try {
       final query = QueryBuilder(ParseObject("PropostaLeilao"))
@@ -228,6 +235,40 @@ class LeilaoAdminController extends GetxController {
       Get.snackbar("Erro", "Mensagem: $e");
       return [];
     }
+  }
+
+  LiveQuery liveQueryPropostaLeilao = LiveQuery();
+  late Subscription subPropostaLeilao;
+  // Inicializa entidadeListaPropostaLeilao()
+  Future<void> startPropostaLeilao() async {
+    var objectIdEntidade = _entidade.objectId;
+    entidadeListaPropostaLeilao =
+        await _entidadeListaPropostaLeilao(objectIdEntidade);
+
+    isDonePropostaLeilao = true;
+    update();
+    final queryProposta = QueryBuilder(ParseObject("PropostaLeilao"))
+      ..whereEqualTo(
+          "entidade", ParseObject("Entidade")..objectId = objectIdEntidade)
+      ..includeObject(["leilao", "leilao.cliente"]);
+    subPropostaLeilao =
+        await liveQueryPropostaLeilao.client.subscribe(queryProposta);
+    subPropostaLeilao.on(LiveQueryEvent.update, (ParseObject value) {
+      print(value);
+      _livePropostaLeilao(objectIdEntidade, value.objectId!);
+    });
+  }
+
+  Future<void> _livePropostaLeilao(
+      String objectIdEntidade, String objectIdPro) async {
+    final queryProposta = QueryBuilder(ParseObject("PropostaLeilao"))
+      ..whereEqualTo(
+          "entidade", ParseObject("Entidade")..objectId = objectIdEntidade)
+      ..includeObject(["leilao", "leilao.cliente"]);
+    var result = await queryProposta.first();
+    if (result == null) return;
+    entidadeListaPropostaLeilao.add(result);
+    update();
   }
 
   Future<void> respostaEntidadeLeilao(
@@ -253,14 +294,14 @@ class LeilaoAdminController extends GetxController {
                     Get.back();
 
                     //Consulta a proposta de leilao onde a coluna winLeilao for true (verdadeiro)
-                    final queryLastWin = QueryBuilder(
-                        ParseObject("PropostaLeilao"))
-                      //..whereEqualTo("winLeilao", true)
-                      ..whereEqualTo("leilao",
-                          ParseObject("Leilao")..objectId = objectIdLeilao)
-                      //Ordena a consulta por ordem crescente a partir da coluna valorProposta
-                      ..orderByAscending("valorProposta")
-                      ..whereEqualTo("entidadeDone", true);
+                    final queryLastWin =
+                        QueryBuilder(ParseObject("PropostaLeilao"))
+                          //..whereEqualTo("winLeilao", true)
+                          ..whereEqualTo("leilao",
+                              ParseObject("Leilao")..objectId = objectIdLeilao)
+                          //Ordena a consulta por ordem crescente a partir da coluna valorProposta
+                          ..orderByAscending("valorProposta")
+                          ..whereEqualTo("entidadeDone", true);
 
                     // Retorna o primeiro objecto da consulta montada e configura como falso
                     final responseLastWin = await queryLastWin.find();
@@ -282,15 +323,15 @@ class LeilaoAdminController extends GetxController {
                     await propostaLeilao.save();
 
                     // Nova instancia de consulta da classe PropostaLeilao
-                    final queryLeilao = QueryBuilder(
-                        ParseObject("PropostaLeilao"))
-                      // Onde a coluna leilao for igual ao objectIdLeilao
-                      ..whereEqualTo("leilao",
-                          ParseObject("Leilao")..objectId = objectIdLeilao)
-                      // Ordena a consulta por ordem crescente a partir da coluna valorProposta
-                      ..orderByAscending("valorProposta")
-                      // Onde a coluna entidadeDone for igual a true (verdadeiro)
-                      ..whereEqualTo("entidadeDone", true);
+                    final queryLeilao =
+                        QueryBuilder(ParseObject("PropostaLeilao"))
+                          // Onde a coluna leilao for igual ao objectIdLeilao
+                          ..whereEqualTo("leilao",
+                              ParseObject("Leilao")..objectId = objectIdLeilao)
+                          // Ordena a consulta por ordem crescente a partir da coluna valorProposta
+                          ..orderByAscending("valorProposta")
+                          // Onde a coluna entidadeDone for igual a true (verdadeiro)
+                          ..whereEqualTo("entidadeDone", true);
 
                     final responseLeilao = await queryLeilao.find();
                     if (responseLeilao.isNotEmpty) {
@@ -306,7 +347,6 @@ class LeilaoAdminController extends GetxController {
                     Get.back();
                   } finally {
                     sendProgressIndicator(false);
-                  
                   }
                 },
                 child: Text("Sim"),
@@ -356,19 +396,20 @@ class LeilaoAdminController extends GetxController {
 
   @override
   void onInit() async {
+    startPropostaLeilao();
     pdfLoading.value = false;
     super.onInit();
   }
 
-  void showMessage(BuildContext context, String value)async {
-   // final channel = WebSocket.connect("");
-   // final client = ParseDioClient();
-   //LiveQuery liveQuery = new LiveQuery();
-   //final query = QueryBuilder(ParseObject("Teste"));
-   //final subscription = await liveQuery.client.subscribe(query);
-   //subscription.on(LiveQueryEvent.create, (ParseObject value){
-     
-   //});
+  void showMessage(BuildContext context, String value) async {
+    // final channel = WebSocket.connect("");
+    // final client = ParseDioClient();
+    //LiveQuery liveQuery = new LiveQuery();
+    //final query = QueryBuilder(ParseObject("Teste"));
+    //final subscription = await liveQuery.client.subscribe(query);
+    //subscription.on(LiveQueryEvent.create, (ParseObject value){
+
+    //});
     await showDialog(
         context: context,
         builder: (_) {
@@ -384,6 +425,12 @@ class LeilaoAdminController extends GetxController {
             ],
           );
         });
-        Get.back();
+    Get.back();
+  }
+
+  @override
+  void onClose() {
+    liveQueryPropostaLeilao.client.unSubscribe(subPropostaLeilao);
+    super.onClose();
   }
 }

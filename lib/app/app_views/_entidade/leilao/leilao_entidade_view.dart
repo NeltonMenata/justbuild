@@ -1,108 +1,108 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:parse_server_sdk_flutter/parse_server_sdk.dart';
-import 'package:pinonline/app/app_controller/_entidade/entidade_login_controller.dart';
-import 'package:pinonline/app/app_models/entidade_model.dart';
 import 'leilao_admin_controller.dart';
 import 'package:pinonline/app/app_views/_size/size.dart';
 
 import 'leilao_entidade_select_view.dart';
 
 class LeilaoEntidadeView extends StatelessWidget {
-  EntidadeModel get _entidade => EntidadeLoginController.controller.entidade[0];
   LeilaoAdminController get _controller => LeilaoAdminController.controller;
   @override
   Widget build(BuildContext context) {
-    String _objectIdEntidade = _entidade.objectId;
     return Scaffold(
       appBar: AppBar(title: Text("Leilões Disponíveis")),
       body: Center(
         child: ListView(
           children: [
-            SizedBox(
-              height: alturaPor(90, context),
-              child: FutureBuilder<List<ParseObject>>(
-                future:
-                    _controller.entidadeListaPropostaLeilao(_objectIdEntidade),
-                builder: (context, snapshot) {
-                  if (snapshot.hasData) {
-                    return ListView.separated(
-                        separatorBuilder: (context, index) => Divider(),
-                        itemCount: snapshot.data!.length,
-                        itemBuilder: (context, index) {
-                          return ListTile(
-                            title: Column(
-                              children: [
-                                Row(
+            GetBuilder(
+              init: LeilaoAdminController(),
+              builder: (_) => SizedBox(
+                height: alturaPor(90, context),
+                child: _controller.isDonePropostaLeilao == true
+                    ? _controller.entidadeListaPropostaLeilao.length > 0
+                        ? ListView.separated(
+                            separatorBuilder: (context, index) => Divider(),
+                            itemCount:
+                                _controller.entidadeListaPropostaLeilao.length,
+                            itemBuilder: (context, index) {
+                              return ListTile(
+                                title: Column(
                                   children: [
-                                    Text(
-                                      "Cliente: ",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          "Cliente: ",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        Text(_controller
+                                            .entidadeListaPropostaLeilao[index]
+                                                ["leilao"]["cliente"]["nome"]
+                                            .toString()),
+                                      ],
                                     ),
-                                    Text(snapshot.data![index]["leilao"]
-                                            ["cliente"]["nome"]
-                                        .toString()),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          "Descrição da Obra: ",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        Flexible(
+                                          child: Text(
+                                            "${_controller.entidadeListaPropostaLeilao[index]["leilao"]["descricao"]}",
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            softWrap: true,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      children: [
+                                        Text(
+                                          "Valor de Leilão: ",
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        Text(_controller
+                                            .entidadeListaPropostaLeilao[index]
+                                                ["leilao"]["valorMax"]
+                                            .toString()),
+                                      ],
+                                    ),
+                                    SizedBox(
+                                      height: 10,
+                                    )
                                   ],
                                 ),
-                                Row(
+                                subtitle: Row(
                                   children: [
-                                    Text(
-                                      "Descrição da Obra: ",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
+                                    SizedBox(
+                                      width: 10,
                                     ),
-                                    Flexible(
-                                      child: Text(
-                                        "${snapshot.data![index]["leilao"]["descricao"]}",
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        softWrap: true,
-                                      ),
+                                    TextButton.icon(
+                                      icon: Icon(Icons.send_rounded),
+                                      onPressed: () {
+                                        Get.to(LeilaoEntidadeSelect(),
+                                            arguments: _controller
+                                                    .entidadeListaPropostaLeilao[
+                                                index]);
+                                      },
+                                      label: Text("Ver mais!"),
                                     ),
                                   ],
                                 ),
-                                Row(
-                                  children: [
-                                    Text(
-                                      "Valor de Leilão: ",
-                                      style: TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    Text(snapshot.data![index]["leilao"]
-                                            ["valorMax"]
-                                        .toString()),
-                                  ],
-                                ),
-                                SizedBox(
-                                  height: 10,
-                                )
-                              ],
-                            ),
-                            subtitle: Row(
-                              children: [
-                                SizedBox(
-                                  width: 10,
-                                ),
-                                TextButton.icon(
-                                  icon: Icon(Icons.send_rounded),
-                                  onPressed: () {
-                                    Get.to(LeilaoEntidadeSelect(),
-                                        arguments: snapshot.data![index]);
-                                  },
-                                  label: Text("Ver mais!"),
-                                ),
-                              ],
-                            ),
-                          );
-                        });
-                  } else if (snapshot.hasError) {
-                    Get.snackbar("Erro", "Mensagem do erro: ${snapshot.error}");
-                  }
-                  return Center(child: CircularProgressIndicator());
-                },
+                              );
+                            })
+                        : Center(
+                            child: Text("Nenhum Leilão Encontrado!!",
+                                style: TextStyle(
+                                    fontSize: 20, fontWeight: FontWeight.bold)),
+                          )
+                    : Center(child: CircularProgressIndicator()),
               ),
-            ),
+            )
           ],
         ),
       ),

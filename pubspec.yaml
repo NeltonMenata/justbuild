@@ -38,7 +38,6 @@ dependencies:
   file_picker: 
   flutter_pdfview:
   path_provider:
-  advance_pdf_viewer: ^2.0.0
 
 dev_dependencies:
   flutter_test:
