@@ -18,8 +18,9 @@ class LeilaoAdminController extends GetxController {
 
   EntidadeModel get _entidade => EntidadeLoginController.controller.entidade[0];
 
-  //
+  //Declaração de todas variaveis que vão verificar se os dados estão carregados no aplicativo para serem exibidos
   var isDonePropostaLeilao = false;
+  var isDoneListaLeilao = false;
   // Variavel que seleciona todos
   bool isSelected = false;
 
@@ -106,9 +107,11 @@ class LeilaoAdminController extends GetxController {
       Get.snackbar("Erro", "Mensagem: $e");
     }
   }
+  //###################################   START   ##########################################
 
   // Função que retorna Lista de todos os pedidos de Leilão
-  Future<List<ParseObject>> listaLeilao() async {
+  List<ParseObject> listaLeilao = [];
+  Future<List<ParseObject>> _listaLeilao() async {
     try {
       final queryLeilao = QueryBuilder(ParseObject("Leilao"))
         ..orderByDescending("createdAt")
@@ -124,6 +127,33 @@ class LeilaoAdminController extends GetxController {
     }
   }
 
+  LiveQuery liveListaLeilao = LiveQuery();
+  late Subscription subListaLeilao;
+
+  Future<void> startListaLeilao() async {
+    listaLeilao = await _listaLeilao();
+    isDoneListaLeilao = true;
+    update();
+    _adminLeilaoResponseEntidadeFor();
+    final queryListaLeilao = QueryBuilder(ParseObject("Leilao"));
+    subListaLeilao = await liveListaLeilao.client.subscribe(queryListaLeilao);
+    subListaLeilao.on(LiveQueryEvent.create, (ParseObject value) {
+      print(value);
+      if (value.objectId == null) return;
+      _liveListaLeilao(value.objectId!);
+    });
+  }
+
+  Future<void> _liveListaLeilao(String objectId) async {
+    final _queryListaLeilao = QueryBuilder(ParseObject("Leilao"))
+      ..whereEqualTo("objectId", objectId);
+    var result = await _queryListaLeilao.first();
+    if (result == null) return;
+    listaLeilao.add(result);
+    update();
+  }
+
+//#######################################   END   ########################################
   // Função que retorna todos os Profissionais que pagam para estar no Leilão
   Future<List<ParseObject>> entidadeLeilao() async {
     try {
@@ -215,6 +245,7 @@ class LeilaoAdminController extends GetxController {
     }
   }
 
+  //####################################    START    ############################################
   // Função que retorna uma lista de Proposta de Leilão
   // recebe o objectId da Entidade e retorna todas Propostas de Leilão
   // onde é igual ao objectId da Entidade
@@ -236,6 +267,7 @@ class LeilaoAdminController extends GetxController {
       return [];
     }
   }
+  // Declaração de Todas Comunicaçoes LiveQuery
 
   LiveQuery liveQueryPropostaLeilao = LiveQuery();
   late Subscription subPropostaLeilao;
@@ -247,13 +279,16 @@ class LeilaoAdminController extends GetxController {
 
     isDonePropostaLeilao = true;
     update();
+
     final queryProposta = QueryBuilder(ParseObject("PropostaLeilao"))
       ..whereEqualTo(
-          "entidade", ParseObject("Entidade")..objectId = objectIdEntidade)
-      ..includeObject(["leilao", "leilao.cliente"]);
+          "entidade", ParseObject("Entidade")..objectId = objectIdEntidade);
+
     subPropostaLeilao =
         await liveQueryPropostaLeilao.client.subscribe(queryProposta);
-    subPropostaLeilao.on(LiveQueryEvent.update, (ParseObject value) {
+
+    // Evento do LiveQuery quando criar uma Nova Proposta
+    subPropostaLeilao.on(LiveQueryEvent.create, (ParseObject value) {
       print(value);
       _livePropostaLeilao(objectIdEntidade, value.objectId!);
     });
@@ -262,6 +297,7 @@ class LeilaoAdminController extends GetxController {
   Future<void> _livePropostaLeilao(
       String objectIdEntidade, String objectIdPro) async {
     final queryProposta = QueryBuilder(ParseObject("PropostaLeilao"))
+      ..whereEqualTo("objectId", objectIdPro)
       ..whereEqualTo(
           "entidade", ParseObject("Entidade")..objectId = objectIdEntidade)
       ..includeObject(["leilao", "leilao.cliente"]);
@@ -270,6 +306,8 @@ class LeilaoAdminController extends GetxController {
     entidadeListaPropostaLeilao.add(result);
     update();
   }
+
+  //#################################    END    #############################################
 
   Future<void> respostaEntidadeLeilao(
       double valorProposta, String objectIdProLeilao, BuildContext context,
@@ -356,8 +394,13 @@ class LeilaoAdminController extends GetxController {
         });
   }
 
+//################################    START    ###################################
   // Função que retorna lista de todas as propostas respondidas pelo profissional
-  Future<List<ParseObject>> adminLeilaoResponseEntidade(
+  List<ParseObject> adminLeilaoResponseEntidade = [];
+  List<ParseObject> newALRE = [];
+  LiveQuery liveALRE = LiveQuery();
+  late Subscription subALRE;
+  Future<List<ParseObject>> _adminLeilaoResponseEntidade(
       String objectIdLeilao) async {
     try {
       final query = QueryBuilder(ParseObject("PropostaLeilao"))
@@ -376,6 +419,51 @@ class LeilaoAdminController extends GetxController {
     }
   }
 
+  void _adminLeilaoResponseEntidadeFor() {
+    listaLeilao.forEach((element) {
+      _adminLeilaoResponseEntidadeFor1(element.objectId!);
+    });
+    _liveALRE();
+  }
+
+  Future<void> _liveALRE() async {
+    final queryALRE = QueryBuilder(ParseObject("PropostaLeilao"))
+      ..whereEqualTo("entidadeDone", true);
+    subALRE = await liveALRE.client.subscribe(queryALRE);
+    subALRE.on(LiveQueryEvent.update, (ParseObject value) {
+      _liveALREupdate(value.objectId!);
+    });
+  }
+
+  Future<void> _liveALREupdate(String objectId) async {
+    final query = QueryBuilder(ParseObject("PropostaLeilao"))
+      ..includeObject(["leilao", "leilao.cliente", "entidade"])
+      ..whereEqualTo("objectId", objectId);
+    var response = await query.first();
+    adminLeilaoResponseEntidade.map((e) {
+      if (response != null) {
+        if (response.objectId == e.objectId) {
+          return response;
+        }
+        return e;
+      }
+    }).toList();
+    update();
+  }
+
+  // Variavel que verifica se todos os adminLeilaoResponseEntidadeFor1 foram concluidos
+  var aLREF = 0;
+  var isDoneALREF = false;
+  Future<void> _adminLeilaoResponseEntidadeFor1(String objectId) async {
+    var result = await _adminLeilaoResponseEntidade(objectId);
+    adminLeilaoResponseEntidade.addAll(result);
+    aLREF++;
+    if (aLREF == adminLeilaoResponseEntidade.length) {
+      isDoneALREF = true;
+    }
+  }
+
+//###############################    END    ######################################
   var pdfLoading = false.obs;
 
   int intPDF = 0;
@@ -397,6 +485,7 @@ class LeilaoAdminController extends GetxController {
   @override
   void onInit() async {
     startPropostaLeilao();
+    startListaLeilao();
     pdfLoading.value = false;
     super.onInit();
   }
@@ -431,6 +520,14 @@ class LeilaoAdminController extends GetxController {
   @override
   void onClose() {
     liveQueryPropostaLeilao.client.unSubscribe(subPropostaLeilao);
+    liveListaLeilao.client.unSubscribe(subListaLeilao);
+    liveALRE.client.unSubscribe(subALRE);
     super.onClose();
   }
 }
+
+
+/*
+
+
+*/

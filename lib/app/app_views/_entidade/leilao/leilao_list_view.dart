@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:parse_server_sdk_flutter/parse_server_sdk.dart';
 import 'package:pinonline/app/app_views/_entidade/leilao/leilao_admin_controller.dart';
 import 'package:pinonline/app/app_views/_entidade/leilao/leilao_response_entidade_view.dart';
 
@@ -12,35 +11,30 @@ class LeilaoListView extends StatelessWidget {
       appBar: AppBar(
         title: Text("Lista de Leilão - Profissionais"),
       ),
-      body: Container(
-        width: double.infinity,
-        child: FutureBuilder<List<ParseObject>>(
-          future: _controller.listaLeilao(),
-          builder: (context, snapshot) {
-            if(snapshot.hasData){
-              return ListView.separated(
-              itemBuilder: (context, index) {
-                return ListTile(
-                  title: Text("${snapshot.data![index]["titulo"]}"),
-                  subtitle: Text("${snapshot.data![index]["descricao"]}"),
-                  onTap: () {
-                    Get.to(LeilaoResponseEntidadeView(),
-                        arguments: snapshot.data![index]);
+      body: GetBuilder<LeilaoAdminController>(
+        init: LeilaoAdminController(),
+        builder: (_) => Container(
+          width: double.infinity,
+          child: _controller.isDoneListaLeilao == true
+              ? ListView.separated(
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      title:
+                          Text("${_controller.listaLeilao[index]["titulo"]}"),
+                      subtitle: Text(
+                          "${_controller.listaLeilao[index]["descricao"]}"),
+                      onTap: () {
+                        Get.to(LeilaoResponseEntidadeView(),
+                            arguments: _controller.listaLeilao[index]);
+                      },
+                    );
                   },
-                );
-              },
-              separatorBuilder: (context, index) {
-                return Divider();
-              },
-              itemCount: snapshot.data!.length,
-            );
-            }else if(snapshot.hasError){
-              return Text("Erro: ${snapshot.error}");
-            }else{
-              return Center(child: CircularProgressIndicator(),);
-            }
-            //////////
-          },
+                  separatorBuilder: (context, index) {
+                    return Divider();
+                  },
+                  itemCount: _controller.listaLeilao.length,
+                )
+              : Center(child: CircularProgressIndicator()),
         ),
       ),
     );

@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:parse_server_sdk_flutter/parse_server_sdk.dart';
 import 'package:pinonline/app/app_controller/_entidade/entidade_login_controller.dart';
 import 'package:pinonline/app/app_models/entidade_model.dart';
-import 'package:pinonline/app/app_views/_size/size.dart';
 import 'leilao_admin_controller.dart';
 
 class LeilaoResponseEntidadeView extends StatelessWidget {
@@ -11,9 +9,18 @@ class LeilaoResponseEntidadeView extends StatelessWidget {
   EntidadeModel get entidade => EntidadeLoginController.controller.entidade[0];
   @override
   Widget build(BuildContext context) {
-    var objectIdLeilao = Get.arguments["objectId"];
     var leilaoTitulo = Get.arguments["titulo"].toString();
     var leilaoDesc = Get.arguments["descricao"].toString();
+    var leilaoObjectId = Get.arguments["objectId"].toString();
+    _controller.adminLeilaoResponseEntidade.forEach((element) {
+      print("################### " +
+          leilaoObjectId +
+          "  ##########################");
+      print("########## " + element["leilao"].objectId! + " ###########");
+      if (element["leilao"]["objectId"] == leilaoObjectId) {
+        _controller.newALRE.add(element);
+      }
+    });
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.green[500],
@@ -21,12 +28,11 @@ class LeilaoResponseEntidadeView extends StatelessWidget {
       ),
       body: Column(
         children: [
-          Expanded(
-            child: FutureBuilder<List<ParseObject>>(
-              future: _controller.adminLeilaoResponseEntidade(objectIdLeilao),
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return snapshot.data!.length > 0
+          GetBuilder<LeilaoAdminController>(
+            init: LeilaoAdminController(),
+            builder: (_) => Expanded(
+              child: _controller.isDoneALREF == true
+                  ? _controller.newALRE.length > 0
                       ? ListView.separated(
                           itemBuilder: (context, index) {
                             return Card(
@@ -38,12 +44,12 @@ class LeilaoResponseEntidadeView extends StatelessWidget {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                              "Profissional: ${snapshot.data![index]["entidade"]["nome"]}"),
+                                              "Profissional: ${_controller.newALRE[index]["entidade"]["nome"]}"),
                                         ]),
                                     subtitle: Text(
-                                        "Valor Proposta: ${snapshot.data![index]["valorProposta"]}"),
+                                        "Valor Proposta: ${_controller.newALRE[index]["valorProposta"]}"),
                                     onTap: () {},
-                                    trailing: snapshot.data![index]
+                                    trailing: _controller.newALRE[index]
                                                 ["winLeilao"] ==
                                             true
                                         ? Chip(
@@ -63,44 +69,39 @@ class LeilaoResponseEntidadeView extends StatelessWidget {
                                   ),
                                   ListTile(
                                     title: Text(
-                                        "Cliente: ${snapshot.data![index]["leilao"]["cliente"]["nome"].toString()}"),
+                                        "Cliente: ${_controller.newALRE[index]["leilao"]["cliente"]["nome"].toString()}"),
                                     subtitle: Text(
-                                        "Valor limite do Leilão: ${snapshot.data![index]["leilao"]["valorMax"].toString()}"),
+                                        "Valor limite do Leilão: ${_controller.newALRE[index]["leilao"]["valorMax"].toString()}"),
                                   ),
                                   ListTile(
                                     title: Text("Descrição: "),
                                     subtitle: Text(
-                                        "Valor posto em Leilão: ${snapshot.data![index]["leilao"]["descricao"]}"),
+                                        "Valor posto em Leilão: ${_controller.newALRE[index]["leilao"]["descricao"]}"),
                                   ),
                                 ],
                               ),
                             );
                           },
                           separatorBuilder: (context, index) => Divider(),
-                          itemCount: snapshot.data!.length)
-                      : Center(
-                          child: SizedBox(
-                            width: larguraPor(70, context),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                ListTile(
-                                  title: Text("$leilaoTitulo"),
-                                  subtitle: Text("$leilaoDesc"),
-                                ),
-                                Text(
-                                    "Este Leilão ainda não foi respondido por algum Profissional!")
-                              ],
+                          itemCount: _controller.newALRE.length)
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            ListTile(
+                              title: Text(leilaoTitulo),
+                              subtitle: Text(leilaoDesc),
                             ),
-                          ),
-                        );
-                } else if (snapshot.hasError) {
-                  return Text("Erro: " + snapshot.error.toString());
-                } else {
-                  return Center(child: CircularProgressIndicator());
-                }
-              },
+                            Text(
+                              "Nenhum resposta dos Profissionais foi encontrado para esse Leilão",
+                              style: TextStyle(
+                                  fontSize: 20, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        )
+                  : Center(
+                      child: CircularProgressIndicator(),
+                    ),
             ),
           ),
         ],
